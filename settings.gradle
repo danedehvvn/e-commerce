@@ -1,0 +1,2 @@
+// 프로젝트(루트)의 이름. IDE와 빌드 결과물 이름에 쓰인다.
+rootProject.name = 'e-commerce'

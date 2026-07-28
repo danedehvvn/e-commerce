@@ -1,0 +1,24 @@
+# 로컬 개발용 MySQL만 컨테이너로 띄운다.
+# (앱 자체의 컨테이너화는 나중 단계. 지금은 DB만 필요)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: commerce-mysql
+    ports:
+      # 호스트 3306 -> 컨테이너 3306. 앱은 localhost:3306으로 접속한다.
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234   # root 계정 비밀번호 (로컬 전용)
+      MYSQL_DATABASE: commerce        # 컨테이너 시작 시 자동 생성할 DB 이름
+      MYSQL_USER: commerce            # 앱이 사용할 일반 계정
+      MYSQL_PASSWORD: commerce1234    # 그 계정의 비밀번호
+    command:
+      # 한글이 깨지지 않도록 문자셋을 utf8mb4로 강제
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      # 컨테이너를 지워도 데이터가 남도록 볼륨에 저장
+      - commerce-mysql-data:/var/lib/mysql
+
+volumes:
+  commerce-mysql-data:

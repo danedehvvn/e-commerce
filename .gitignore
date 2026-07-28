@@ -1,0 +1,17 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# 로그
+*.log
+
+# 로컬 환경설정(비밀값 들어갈 수 있음)
+application-local.yml
