@@ -3,6 +3,7 @@ package com.example.ecommerce.global.exception;
 import com.example.ecommerce.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -17,6 +18,43 @@ public class GlobalExceptionHandler {
     // ProductNotFoundException → 404 Not Found 로 변환.
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException e) {
+        HttpStatus status = HttpStatus.NOT_FOUND; // 404
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 로그인 실패(이메일 없음/비밀번호 불일치) → 401 Unauthorized.
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException e) {
+        HttpStatus status = HttpStatus.UNAUTHORIZED; // 401
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 이미 존재하는 이메일로 회원가입 → 409 Conflict.
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleEmailExists(EmailAlreadyExistsException e) {
+        HttpStatus status = HttpStatus.CONFLICT; // 409
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // @Valid 검증 실패(이메일 형식 오류, 비밀번호 길이 등) → 400 Bad Request.
+    // 첫 번째 필드 에러 메시지를 뽑아 응답에 담는다.
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
+        HttpStatus status = HttpStatus.BAD_REQUEST; // 400
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fieldError -> fieldError.getDefaultMessage())
+                .orElse("잘못된 요청입니다.");
+        ErrorResponse body = new ErrorResponse(status.value(), message);
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 회원 없음 → 404 Not Found.
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMemberNotFound(MemberNotFoundException e) {
         HttpStatus status = HttpStatus.NOT_FOUND; // 404
         ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
         return ResponseEntity.status(status).body(body);

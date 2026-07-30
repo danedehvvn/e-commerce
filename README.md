@@ -23,6 +23,12 @@ Java · Spring Boot 기반 잡화 커머스 백엔드 포트폴리오. 상품 ·
 - 상품 목록 페이징·정렬(`Pageable`) + 카테고리 필터 + 이름 검색
 - `@RestControllerAdvice` 전역 예외 처리 + 통일된 에러 응답
 
+**3단계 — 회원 + Spring Security JWT 인증**
+- 회원가입(BCrypt 암호화) / 로그인 → JWT 발급
+- `OncePerRequestFilter` 기반 JWT 검증 필터 → `SecurityContext`에 인증정보 저장
+- `SecurityFilterChain`(Spring Security 6): STATELESS · CSRF off · 엔드포인트별 인가
+- 역할 기반 인가(USER / ADMIN), 401(EntryPoint)/403(AccessDeniedHandler) JSON 통일
+
 ## 실행 방법
 
 ### 1) 로컬 MySQL 띄우기 (Docker)
@@ -52,13 +58,39 @@ com.example.ecommerce
 └── global/       # 공통 (BaseTimeEntity, 전역 예외 처리, 시드 데이터)
 ```
 
+## 인증 흐름
+
+```
+회원가입(POST /api/auth/signup)  →  로그인(POST /api/auth/login) → JWT 획득
+   →  이후 요청 헤더에 실어 호출:  Authorization: Bearer <accessToken>
+```
+
+시드 계정(앱 실행 시 자동 생성):
+- 관리자: `admin@example.com` / `admin1234` (ADMIN)
+- 일반: `user@example.com` / `user1234` (USER)
+
 ## API 문서
 
-| 메서드 | 경로 | 설명 | 주요 파라미터 |
+### 권한별 엔드포인트
+
+| 메서드 | 경로 | 설명 | 접근 권한 |
 |---|---|---|---|
-| GET | `/api/products` | 상품 목록(페이징) | `page`, `size`, `sort`(예: `price,desc`), `categoryId`, `keyword` |
-| GET | `/api/products/{id}` | 상품 상세 | — (없는 id면 404) |
-| GET | `/api/categories` | 카테고리 전체 | — |
+| POST | `/api/auth/signup` | 회원가입 | 누구나 |
+| POST | `/api/auth/login` | 로그인(JWT 발급) | 누구나 |
+| GET | `/api/products` | 상품 목록(페이징·필터·검색) | 누구나 |
+| GET | `/api/products/{id}` | 상품 상세 | 누구나 |
+| GET | `/api/categories` | 카테고리 전체 | 누구나 |
+| GET | `/api/members/me` | 내 정보 조회 | 인증 필요 (USER/ADMIN) |
+| GET | `/api/admin/**` | 어드민 영역 | ADMIN 전용 |
+
+- 인증 없이 보호 엔드포인트 접근 → **401** `{ "status":401, "message":"인증이 필요합니다." }`
+- 권한 부족(USER가 ADMIN 영역) → **403** `{ "status":403, "message":"접근 권한이 없습니다." }`
+
+### 조회 API 파라미터
+
+| 메서드 | 경로 | 주요 파라미터 |
+|---|---|---|
+| GET | `/api/products` | `page`, `size`, `sort`(예: `price,desc`), `categoryId`, `keyword` |
 
 ### 응답 예시
 
@@ -102,4 +134,26 @@ curl -i "http://localhost:8080/api/products/9999"
 curl "http://localhost:8080/api/categories"
 ```
 
-> 앱 실행 시 `DataInitializer`가 카테고리 3종 + 상품 8개를 자동으로 넣는다(비어 있을 때만).
+### 인증 curl 예시
+```bash
+# 1) 회원가입
+curl -X POST http://localhost:8080/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"kim@example.com","password":"pass1234","name":"김철수"}'
+
+# 2) 로그인 → 토큰 획득 (아래는 토큰만 뽑아 변수에 저장하는 예)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"user1234"}' | jq -r .accessToken)
+
+# 3) 토큰으로 보호된 엔드포인트 호출
+curl http://localhost:8080/api/members/me -H "Authorization: Bearer $TOKEN"
+
+# 4) 토큰 없이 → 401 / USER로 어드민 → 403
+curl -i http://localhost:8080/api/members/me
+curl -i http://localhost:8080/api/admin/ping -H "Authorization: Bearer $TOKEN"
+```
+
+> 앱 실행 시 `DataInitializer`가 카테고리 3종 + 상품 8개 + 시드 계정(admin/user)을 자동으로 넣는다(비어 있을 때만).
+>
+> **보안 주의:** `jwt.secret`은 개발용 기본값이 들어 있다. 운영에서는 반드시 환경변수 `JWT_SECRET`으로 길고 무작위한 값을 주입한다.

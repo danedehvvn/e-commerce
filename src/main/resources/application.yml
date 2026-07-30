@@ -20,3 +20,13 @@ spring:
       hibernate:
         # SQL을 보기 좋게 줄바꿈/들여쓰기해서 출력
         format_sql: true
+
+# ── JWT 설정 ──
+# secret: 토큰 서명 키. 코드에 하드코딩하지 않고 여기서 읽는다.
+#   ${JWT_SECRET:기본값} → 환경변수 JWT_SECRET이 있으면 그 값을, 없으면 뒤의 개발용 기본값을 사용.
+#   운영에서는 반드시 환경변수로 길고 무작위한 값을 주입한다(기본값 사용 금지).
+#   HS256은 최소 256비트(=32바이트) 이상의 키가 필요하므로 기본값도 넉넉히 길게 둔다.
+# expiration: 토큰 만료 시간(밀리초). 3600000 = 1시간.
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-key-please-change-in-production-0123456789}
+  expiration: 3600000

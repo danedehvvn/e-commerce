@@ -65,4 +65,15 @@ public class Member extends BaseTimeEntity {
                 .role(Role.USER)
                 .build();
     }
+
+    // 관리자 계정 생성 통로. 일반 회원가입(create)과 분리해, ADMIN은 이 메서드로만 만들 수 있게 한다.
+    //   (운영에서는 시드/마이그레이션 등 통제된 경로에서만 호출)
+    public static Member createAdmin(String email, String password, String name) {
+        return Member.builder()
+                .email(email)
+                .password(password)
+                .name(name)
+                .role(Role.ADMIN)
+                .build();
+    }
 }
