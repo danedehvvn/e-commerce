@@ -29,6 +29,12 @@ Java · Spring Boot 기반 잡화 커머스 백엔드 포트폴리오. 상품 ·
 - `SecurityFilterChain`(Spring Security 6): STATELESS · CSRF off · 엔드포인트별 인가
 - 역할 기반 인가(USER / ADMIN), 401(EntryPoint)/403(AccessDeniedHandler) JSON 통일
 
+**4단계 — 장바구니 · 주문 · 재고 동시성 제어 ⭐**
+- 장바구니 담기(수량 합산)/조회/삭제(본인 소유 검증)
+- 주문 생성: 재고 차감 + 주문 시점 가격 스냅샷 + 총액, `@Transactional`로 원자성 보장
+- **재고 차감 동시성 제어(비관적 락)** — 초과 판매 방지, 동시 주문 테스트로 증명
+- 주문 조회(목록 페이징 / 상세) + **N+1 → fetch join 개선**(쿼리 5→1)
+
 ## 실행 방법
 
 ### 1) 로컬 MySQL 띄우기 (Docker)
@@ -81,6 +87,12 @@ com.example.ecommerce
 | GET | `/api/products/{id}` | 상품 상세 | 누구나 |
 | GET | `/api/categories` | 카테고리 전체 | 누구나 |
 | GET | `/api/members/me` | 내 정보 조회 | 인증 필요 (USER/ADMIN) |
+| POST | `/api/cart` | 장바구니 담기 | 인증 필요 |
+| GET | `/api/cart` | 내 장바구니 조회 | 인증 필요 |
+| DELETE | `/api/cart/{cartItemId}` | 장바구니 항목 삭제(본인) | 인증 필요 |
+| POST | `/api/orders` | 주문 생성 | 인증 필요 |
+| GET | `/api/orders` | 내 주문 목록(페이징) | 인증 필요 |
+| GET | `/api/orders/{id}` | 주문 상세(본인) | 인증 필요 |
 | GET | `/api/admin/**` | 어드민 영역 | ADMIN 전용 |
 
 - 인증 없이 보호 엔드포인트 접근 → **401** `{ "status":401, "message":"인증이 필요합니다." }`
@@ -157,3 +169,62 @@ curl -i http://localhost:8080/api/admin/ping -H "Authorization: Bearer $TOKEN"
 > 앱 실행 시 `DataInitializer`가 카테고리 3종 + 상품 8개 + 시드 계정(admin/user)을 자동으로 넣는다(비어 있을 때만).
 >
 > **보안 주의:** `jwt.secret`은 개발용 기본값이 들어 있다. 운영에서는 반드시 환경변수 `JWT_SECRET`으로 길고 무작위한 값을 주입한다.
+
+## ⭐ 핵심: 재고 차감 동시성 제어
+
+인기 상품에 **동시에 여러 주문**이 몰리면, 락 없이는 재고 검증이 무력화되어 **초과 판매**가 발생한다.
+
+### 문제 재현 → 해결 → 증명
+`ExecutorService` + `CountDownLatch`로 **100개 스레드가 재고 10개 상품을 동시에 주문**하는 테스트
+(`OrderConcurrencyTest`)로 검증했다.
+
+| | 락 없음 (before) | 비관적 락 (after) |
+|---|---|---|
+| 성공 주문 | **81건** (초과 판매!) | **10건** |
+| 남은 재고 | 0 (81개 팔림) | 0 (정확히 10개) |
+| 테스트 | ❌ FAIL | ✅ PASS |
+
+### 원인과 해결
+- **원인**: 여러 트랜잭션이 동시에 같은 재고를 읽고(stale read) 각자 차감·커밋 → 서로의 변경을 덮어씀(lost update).
+- **해결**: 재고 조회에 **비관적 쓰기 락**(`@Lock(PESSIMISTIC_WRITE)` → `SELECT ... FOR UPDATE`)을 적용.
+  같은 상품 행을 잠가, 재고 차감을 **한 번에 하나씩 직렬화**한다.
+- **선택 근거**: 재고 차감은 충돌이 잦고 트랜잭션이 짧아 비관적 락이 적합. (낙관적 락은 충돌마다 재시도가 폭증)
+
+```java
+// ProductRepository
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("select p from Product p where p.id = :id")
+Optional<Product> findByIdForUpdate(@Param("id") Long id);
+```
+
+### N+1 문제 개선 (주문 상세 조회)
+- 주문 상세를 `findById`로 조회하면 `주문 → 주문상품 → 상품`을 따라가며 쿼리가 **5번**(항목 수에 비례) 발생.
+- `join fetch`로 한 번에 로딩하도록 개선 → **쿼리 1번**.
+
+```java
+@Query("select o from Order o join fetch o.orderItems oi join fetch oi.product where o.id = :id")
+Optional<Order> findByIdWithItems(@Param("id") Long id);
+```
+
+### 주문 curl 예시
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"user1234"}' | jq -r .accessToken)
+
+# 장바구니 담기 → 조회
+curl -X POST http://localhost:8080/api/cart -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"productId":1,"quantity":2}'
+curl http://localhost:8080/api/cart -H "Authorization: Bearer $TOKEN"
+
+# 주문 생성 → 목록 → 상세
+curl -X POST http://localhost:8080/api/orders -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"items":[{"productId":1,"quantity":2},{"productId":4,"quantity":1}]}'
+curl "http://localhost:8080/api/orders?page=0&size=10" -H "Authorization: Bearer $TOKEN"
+curl http://localhost:8080/api/orders/1 -H "Authorization: Bearer $TOKEN"
+```
+
+### 동시성 테스트 실행
+```bash
+./gradlew test --tests "com.example.ecommerce.OrderConcurrencyTest"
+```

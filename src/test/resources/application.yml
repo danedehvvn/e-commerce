@@ -1,0 +1,22 @@
+# 테스트 전용 설정. @SpringBootTest가 이 설정으로 H2 메모리 DB에 붙어 돌아간다.
+# (운영/개발용 MySQL 설정을 덮어써서, 테스트는 Docker 없이 실행된다)
+spring:
+  datasource:
+    # MODE=MySQL: MySQL 문법 호환. DB_CLOSE_DELAY=-1: 여러 커넥션이 같은 인메모리 DB 공유.
+    # LOCK_TIMEOUT=10000: 비관적 락 대기 시간을 넉넉히(10초) 줘서 동시성 테스트 안정화.
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# 테스트용 JWT 설정 (운영 값과 무관)
+jwt:
+  secret: test-only-secret-key-for-junit-0123456789-abcdefghij
+  expiration: 3600000

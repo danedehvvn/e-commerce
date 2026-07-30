@@ -60,6 +60,30 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 
+    // 주문 없음 → 404 Not Found.
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException e) {
+        HttpStatus status = HttpStatus.NOT_FOUND; // 404
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 장바구니 항목 없음 → 404 Not Found.
+    @ExceptionHandler(CartItemNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCartItemNotFound(CartItemNotFoundException e) {
+        HttpStatus status = HttpStatus.NOT_FOUND; // 404
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 소유자가 아님(남의 자원 조작) → 403 Forbidden.
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException e) {
+        HttpStatus status = HttpStatus.FORBIDDEN; // 403
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
     // 잘못된 인자(예: 재고 부족, 별점 범위 초과 등 IllegalArgumentException) → 400 Bad Request.
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException e) {
