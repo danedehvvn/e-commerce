@@ -95,4 +95,29 @@ public class Product extends BaseTimeEntity {
             this.status = ProductStatus.ON_SALE; // 품절이었다면 다시 판매중
         }
     }
+
+    // ── 어드민(운영자)용 메서드 ──
+
+    // 상품 정보 수정. 유효성(가격 음수 금지)을 여기서 지킨다.
+    public void updateInfo(String name, int price, String description) {
+        if (price < 0) {
+            throw new IllegalArgumentException("가격은 0원 이상이어야 합니다.");
+        }
+        this.name = name;
+        this.price = price;
+        this.description = description;
+    }
+
+    // 입고: 재고를 quantity 만큼 늘린다. (음수/0 입고는 막는다)
+    public void addStock(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("입고 수량은 1개 이상이어야 합니다.");
+        }
+        increaseStock(quantity); // 실제 증가 + 품절→판매중 전환은 기존 메서드 재사용
+    }
+
+    // 판매 상태 변경. (판매중/품절/판매중지)
+    public void changeStatus(ProductStatus status) {
+        this.status = status;
+    }
 }

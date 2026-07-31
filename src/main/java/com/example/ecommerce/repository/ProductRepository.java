@@ -27,6 +27,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 상품명 부분 일치 검색. WHERE name LIKE %keyword%
     Page<Product> findByNameContaining(String keyword, Pageable pageable);
 
+    // 재고가 임계값 이하인 상품(재고 적은 순). 운영자가 재입고 판단에 쓴다.
+    List<Product> findByStockQuantityLessThanEqualOrderByStockQuantityAsc(int threshold);
+
     // ── 비관적 쓰기 락(Pessimistic Write Lock)으로 상품 조회 ──
     // @Lock(PESSIMISTIC_WRITE) → 실행되는 SQL이 "SELECT ... FOR UPDATE"가 된다.
     //   이 행(상품)을 조회하는 순간 DB가 행을 잠그고, 트랜잭션이 끝날 때까지

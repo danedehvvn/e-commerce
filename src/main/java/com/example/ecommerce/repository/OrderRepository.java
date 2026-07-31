@@ -2,6 +2,7 @@ package com.example.ecommerce.repository;
 
 import com.example.ecommerce.domain.Member;
 import com.example.ecommerce.domain.Order;
+import com.example.ecommerce.domain.OrderStatus;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // 특정 회원의 주문 목록 (페이징)
     Page<Order> findByMember(Member member, Pageable pageable);
+
+    // 상태별 주문 목록 (어드민 전체 주문 조회 - 상태 필터)
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 
     // ── 주문 상세를 fetch join으로 한 번에 조회 ──
     // join fetch로 orderItems와 각 item의 product까지 "하나의 SELECT"로 가져온다.

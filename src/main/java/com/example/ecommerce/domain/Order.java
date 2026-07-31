@@ -1,6 +1,7 @@
 package com.example.ecommerce.domain;
 
 import com.example.ecommerce.global.BaseTimeEntity;
+import com.example.ecommerce.global.exception.InvalidOrderStatusException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -87,20 +88,30 @@ public class Order extends BaseTimeEntity {
                 .sum();
     }
 
-    // ── 상태 변경 (의미 있는 메서드) ──
-    // 주문 취소 : 이미 배송이 시작됐으면 취소 불가. 취소되면 각 항목의 재고를 복구.
-    public void cancel() {
-        if (this.status == OrderStatus.SHIPPING || this.status == OrderStatus.DELIVERED) {
-            throw new IllegalStateException("배송이 시작된 주문은 취소할 수 없습니다.");
+    // ── 상태 전이 (의미 있는 메서드) ──
+    // 어드민이 주문 상태를 바꿀 때 사용. 허용된 전이만 가능(규칙은 OrderStatus.canTransitionTo).
+    //   전이 검증을 "도메인(Order/OrderStatus) 안"에 두는 이유:
+    //   상태 규칙이 컨트롤러/서비스에 흩어지면 누군가는 검증을 빠뜨린다.
+    //   엔티티가 스스로 "나는 이 상태로만 갈 수 있다"를 보장하면 어디서 호출하든 안전하다.
+    public void changeStatus(OrderStatus next) {
+        if (!this.status.canTransitionTo(next)) {
+            throw new InvalidOrderStatusException(this.status, next);
         }
-        this.status = OrderStatus.CANCELED;
-        for (OrderItem orderItem : orderItems) {
-            orderItem.cancel(); // 재고 원복
+        if (next == OrderStatus.CANCELED) {
+            restoreStock(); // 취소 시 차감했던 재고를 복구
         }
+        this.status = next;
     }
 
-    // 어드민이 주문 상태를 다음 단계로 전이시킬 때 사용.
-    public void changeStatus(OrderStatus status) {
-        this.status = status;
+    // 주문 취소도 상태 전이의 하나. (재고 복구는 changeStatus가 처리)
+    public void cancel() {
+        changeStatus(OrderStatus.CANCELED);
+    }
+
+    // 각 주문 항목의 재고를 원복한다.
+    private void restoreStock() {
+        for (OrderItem orderItem : orderItems) {
+            orderItem.cancel();
+        }
     }
 }

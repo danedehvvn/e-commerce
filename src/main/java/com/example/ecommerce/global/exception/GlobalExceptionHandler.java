@@ -60,6 +60,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 
+    // 카테고리 없음 → 404 Not Found.
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryNotFound(CategoryNotFoundException e) {
+        HttpStatus status = HttpStatus.NOT_FOUND; // 404
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
     // 주문 없음 → 404 Not Found.
     @ExceptionHandler(OrderNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException e) {
@@ -80,6 +88,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException e) {
         HttpStatus status = HttpStatus.FORBIDDEN; // 403
+        ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    // 허용되지 않은 주문 상태 전이 → 400 Bad Request.
+    @ExceptionHandler(InvalidOrderStatusException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOrderStatus(InvalidOrderStatusException e) {
+        HttpStatus status = HttpStatus.BAD_REQUEST; // 400
         ErrorResponse body = new ErrorResponse(status.value(), e.getMessage());
         return ResponseEntity.status(status).body(body);
     }
