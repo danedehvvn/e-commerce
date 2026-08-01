@@ -1,13 +1,31 @@
 # e-commerce (잡화 커머스)
 
-Java · Spring Boot 기반 잡화 커머스 백엔드 포트폴리오. 상품 · 장바구니 · 주문 · 어드민을 다루며,
+Java · Spring Boot 기반 잡화 커머스 포트폴리오. 상품 · 장바구니 · 주문 · 어드민을 다루며,
 **주문 시 재고 차감 동시성 제어 / N+1 문제 해결 / 운영자 어드민**을 깊게 파는 것을 목표로 한다.
+프론트(React) → 백엔드(Spring Boot) → DB(MySQL) 전체를 `docker compose up` 한 줄로 실행한다.
+
+> **GitHub:** https://github.com/danedehvvn/e-commerce
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+    Browser[브라우저] -->|HTTP| FE["프론트엔드<br/>React + nginx :5173"]
+    Browser -->|"REST API (JWT)"| BE["백엔드<br/>Spring Boot :8080"]
+    BE -->|JDBC| DB[("MySQL :3306")]
+    subgraph docker compose
+      FE
+      BE
+      DB
+    end
+```
 
 ## 기술 스택
-- Java 17, Spring Boot 3.4
-- Spring Data JPA (Hibernate), Validation, Lombok
-- MySQL 8 (운영/개발), H2 (테스트)
-- Gradle (Wrapper 포함)
+- **백엔드**: Java 17, Spring Boot 3.4, Spring Data JPA(Hibernate), Spring Security + JWT, Validation, Lombok
+- **DB**: MySQL 8 (운영/개발), H2 (테스트)
+- **프론트**: React 18 + Vite (최소 구현, API 동작 증명용)
+- **인프라**: Docker / Docker Compose (MySQL + 백엔드 + 프론트 3-tier), nginx
+- **빌드/테스트**: Gradle(Wrapper), JUnit5
 
 ## 현재까지
 **1단계 — 도메인 설계**
@@ -41,17 +59,28 @@ Java · Spring Boot 기반 잡화 커머스 백엔드 포트폴리오. 상품 ·
 - 어드민 조회: 상태별 주문(요약 DTO로 N+1 회피) / 재고 부족 상품
 - 모든 `/api/admin/**`는 `hasRole("ADMIN")` 보호 (USER 접근 시 403)
 
+**6단계 — React 프론트(최소) + Docker Compose**
+- React 화면 5종: 상품목록(페이징·필터) / 상세(담기) / 로그인 / 장바구니 / 주문내역
+- JWT 자동 첨부 + 최소 인증 가드, 백엔드 CORS 설정
+- 멀티스테이지 Dockerfile(백엔드·프론트) + `docker compose up`으로 3-tier 한 방에 실행
+
 ## 실행 방법
 
-### 1) 로컬 MySQL 띄우기 (Docker)
+### ⭐ 전체 스택 한 번에 (권장)
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
-- MySQL 8이 `localhost:3306`에 뜬다. DB: `commerce`, 계정: `commerce / commerce1234`
+- **프론트** → http://localhost:5173
+- **백엔드 API** → http://localhost:8080
+- **MySQL** → localhost:3306 (DB `commerce`, 계정 `commerce / commerce1234`)
+- 시드 계정: `user@example.com / user1234`, `admin@example.com / admin1234`
+- 기동 순서: MySQL(healthy) → 백엔드 → 프론트 (`depends_on` + 헬스체크)
 
-### 2) 애플리케이션 실행
+### 개발용: 개별 실행
 ```bash
-./gradlew bootRun
+docker compose up -d mysql        # DB만 컨테이너로
+./gradlew bootRun                 # 백엔드 로컬 실행
+cd frontend && npm install && npm run dev   # 프론트 개발서버(5173)
 ```
 
 ### 3) 테스트 (H2 메모리 DB, Docker 불필요)
@@ -68,6 +97,67 @@ com.example.ecommerce
 ├── controller/   # REST API
 ├── dto/          # 요청·응답 DTO
 └── global/       # 공통 (BaseTimeEntity, 전역 예외 처리, 시드 데이터)
+```
+
+## ERD
+
+```mermaid
+erDiagram
+    MEMBER ||--o{ ORDERS : places
+    MEMBER ||--o{ CART_ITEM : has
+    MEMBER ||--o{ REVIEW : writes
+    CATEGORY ||--o{ PRODUCT : contains
+    PRODUCT ||--o{ CART_ITEM : in
+    PRODUCT ||--o{ ORDER_ITEM : ordered
+    PRODUCT ||--o{ REVIEW : reviewed
+    ORDERS ||--o{ ORDER_ITEM : includes
+
+    MEMBER {
+        bigint id PK
+        string email UK
+        string password
+        string name
+        enum role
+    }
+    CATEGORY {
+        bigint id PK
+        string name
+    }
+    PRODUCT {
+        bigint id PK
+        bigint category_id FK
+        string name
+        int price
+        int stock_quantity
+        enum status
+    }
+    CART_ITEM {
+        bigint id PK
+        bigint member_id FK
+        bigint product_id FK
+        int quantity
+    }
+    ORDERS {
+        bigint id PK
+        bigint member_id FK
+        enum status
+        int total_price
+        datetime ordered_at
+    }
+    ORDER_ITEM {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
+        int order_price
+        int count
+    }
+    REVIEW {
+        bigint id PK
+        bigint member_id FK
+        bigint product_id FK
+        int rating
+        string content
+    }
 ```
 
 ## 인증 흐름

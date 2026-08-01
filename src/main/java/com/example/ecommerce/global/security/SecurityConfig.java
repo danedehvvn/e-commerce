@@ -1,6 +1,7 @@
 package com.example.ecommerce.global.security;
 
 import com.example.ecommerce.global.jwt.JwtAuthenticationFilter;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,6 +10,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 // Spring Security 6 방식: WebSecurityConfigurerAdapter(구식) 대신
 //   SecurityFilterChain 빈을 직접 등록하고 람다 DSL로 설정한다.
@@ -31,6 +35,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // CORS 활성화: 아래 corsConfigurationSource() 빈의 규칙을 사용한다.
+                //   (프론트가 다른 출처(origin)에서 API를 부르므로 필수)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 // CSRF 비활성화: CSRF 공격은 브라우저가 쿠키를 자동 전송하는 걸 악용한다.
                 //   우리는 세션·쿠키가 아니라 JWT를 헤더에 직접 실어 보내므로 그 공격이 성립하지 않는다 → 꺼도 안전.
                 .csrf(csrf -> csrf.disable())
@@ -65,5 +73,23 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // ── CORS(Cross-Origin Resource Sharing) 규칙 ──
+    // 브라우저는 보안상 "다른 출처(호스트/포트가 다른 곳)"로의 요청을 기본 차단한다.
+    //   프론트(localhost:5173, 컨테이너 3000)와 백엔드(localhost:8080)는 출처가 달라
+    //   백엔드가 "이 출처는 허용한다"고 명시해줘야 브라우저가 응답을 받게 해준다.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // 허용할 프론트 출처 (Vite 개발서버 5173, 도커 프론트 3000)
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));   // Authorization, Content-Type 등 모두 허용
+        // JWT는 쿠키가 아니라 헤더로 보내므로 자격증명(쿠키) 공유는 불필요 → false
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config); // 모든 경로에 적용
+        return source;
     }
 }

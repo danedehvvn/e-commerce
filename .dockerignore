@@ -1,0 +1,8 @@
+# 도커 빌드 컨텍스트에서 제외 (이미지에 불필요/무거운 것들)
+build/
+.gradle/
+.git/
+.idea/
+*.iml
+.DS_Store
+frontend/node_modules/

@@ -1,11 +1,13 @@
-# 로컬 개발용 MySQL만 컨테이너로 띄운다.
-# (앱 자체의 컨테이너화는 나중 단계. 지금은 DB만 필요)
+# 전체 스택을 한 번에 띄운다: MySQL(DB) + 백엔드(Spring Boot)
+# (프론트는 Part A에서 추가한다)
 services:
+
+  # ── 데이터베이스 ──
   mysql:
     image: mysql:8.0
     container_name: commerce-mysql
     ports:
-      # 호스트 3306 -> 컨테이너 3306. 앱은 localhost:3306으로 접속한다.
+      # 호스트 3306 -> 컨테이너 3306
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root1234   # root 계정 비밀번호 (로컬 전용)
@@ -19,6 +21,46 @@ services:
     volumes:
       # 컨테이너를 지워도 데이터가 남도록 볼륨에 저장
       - commerce-mysql-data:/var/lib/mysql
+    # ── 헬스체크 ──
+    # "MySQL이 실제로 접속을 받을 준비가 됐는지"를 주기적으로 확인한다.
+    # 컨테이너가 '떴다'와 'DB가 접속 가능하다'는 다르다(초기화에 몇 초 걸림).
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ucommerce", "-pcommerce1234"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── 백엔드 (Spring Boot) ──
+  backend:
+    build: .                          # 현재 폴더의 Dockerfile로 이미지를 빌드
+    container_name: commerce-backend
+    ports:
+      - "8080:8080"
+    environment:
+      # DB 접속 정보를 "환경변수로 주입"한다.
+      #  - 호스트는 localhost가 아니라 서비스 이름 'mysql' (컴포즈 내부 네트워크에서 DNS로 통함)
+      #  - Spring Boot는 SPRING_DATASOURCE_URL 등 표준 환경변수를 application.yml 값보다 우선 적용
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/commerce?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: commerce
+      SPRING_DATASOURCE_PASSWORD: commerce1234
+      # JWT 서명 키도 코드가 아닌 환경변수로 (운영 비밀값 주입 방식)
+      JWT_SECRET: docker-compose-dev-secret-key-please-change-0123456789
+    depends_on:
+      # mysql이 'healthy'가 된 뒤에야 백엔드를 띄운다.
+      #  → 백엔드가 DB보다 먼저 떠서 "연결 실패"로 죽는 걸 방지 (순서가 중요한 이유)
+      mysql:
+        condition: service_healthy
+
+  # ── 프론트엔드 (React 빌드 → nginx 서빙) ──
+  frontend:
+    build: ./frontend               # frontend/Dockerfile로 빌드
+    container_name: commerce-frontend
+    ports:
+      # 호스트 5173 → 컨테이너 nginx 80. 브라우저는 http://localhost:5173 로 접속.
+      # (3000은 Docker Desktop이 점유 중이라 5173 사용, CORS 허용 목록에도 포함됨)
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   commerce-mysql-data:

@@ -1,0 +1,33 @@
+/* 최소한의 스타일. (백엔드 지원용이라 화면 꾸미기는 최소) */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  color: #222;
+  background: #fafafa;
+}
+a { color: #2563eb; text-decoration: none; }
+nav {
+  display: flex; gap: 16px; align-items: center;
+  padding: 12px 20px; background: #fff; border-bottom: 1px solid #eee;
+}
+nav .spacer { flex: 1; }
+main { max-width: 900px; margin: 0 auto; padding: 20px; }
+.card {
+  background: #fff; border: 1px solid #eee; border-radius: 8px;
+  padding: 16px; margin-bottom: 12px;
+}
+button {
+  padding: 8px 14px; border: 1px solid #2563eb; background: #2563eb; color: #fff;
+  border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+button.secondary { background: #fff; color: #2563eb; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+input, select {
+  padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+}
+.row { display: flex; gap: 8px; align-items: center; }
+.muted { color: #888; font-size: 13px; }
+.error { color: #dc2626; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
