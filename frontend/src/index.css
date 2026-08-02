@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 디자인 토큰 (POCHÉ: 코발트 블루 + 버터 옐로우) ──
+   로고에서 뽑은 두 색을 정체성으로. 블루=포인트/버튼/글자, 버터=시그니처 배경 블록.
+   shadcn/ui가 참조하는 CSS 변수(HSL). 톤 변경은 여기 한 곳만 고치면 전체가 바뀐다. */
+@layer base {
+  :root {
+    --background: 48 100% 98%;      /* 크림 #FFFCF3 */
+    --foreground: 238 30% 17%;      /* 잉크(딥 블루차콜) #22233A */
+
+    --card: 0 0% 100%;
+    --card-foreground: 238 30% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 238 30% 17%;
+
+    --primary: 228 64% 47%;         /* 코발트 블루 #2B47C7 (로고 색) */
+    --primary-foreground: 48 100% 98%;
+
+    --secondary: 48 78% 79%;        /* 버터 옐로우 #F4E4A1 (로고 배경 색) */
+    --secondary-foreground: 228 60% 28%;
+
+    --muted: 48 45% 95%;
+    --muted-foreground: 240 7% 48%;
+
+    --accent: 48 80% 86%;
+    --accent-foreground: 228 60% 28%;
+
+    --destructive: 8 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 45 32% 88%;
+    --input: 45 32% 88%;
+    --ring: 228 64% 47%;
+
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
